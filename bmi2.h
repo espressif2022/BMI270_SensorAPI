@@ -59,7 +59,12 @@ extern "C" {
 /*!             Header files
  ****************************************************************************/
 #include "bmi2_defs.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_check.h"
 
+#include "driver/i2c.h"
 /***************************************************************************/
 
 /*!     BMI2XY User Interface function prototypes

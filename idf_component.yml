@@ -1,0 +1,11 @@
+version: 1.0.1~1
+dependencies:
+  cmake_utilities:
+    version: 0.*
+  idf:
+    version: '>=4.4'
+description: The BMI270 is a compact, low-power IMU designed for mobile applications.
+url: https://github.com/espressif2022/BMI270_SensorAPI
+repository: "https://github.com/espressif2022/BMI270_SensorAPI.git"
+documentation: "https://github.com/boschsensortec/BMI270_SensorAPI/"
+issues: "https://github.com/espressif2022/BMI270_SensorAPI/issues" # URL of the issue tracker

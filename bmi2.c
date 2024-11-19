@@ -2097,7 +2097,7 @@ int8_t bmi2_soft_reset(struct bmi2_dev *dev)
     {
         /* Reset bmi2 device */
         rslt = bmi2_set_regs(BMI2_CMD_REG_ADDR, &data, 1, dev);
-        dev->delay_us(2000, dev->intf_ptr);
+        dev->delay_us(20 * 1000, dev->intf_ptr);
 
         /* Set APS flag as after soft reset the sensor is on advance power save mode */
         dev->aps_status = BMI2_ENABLE;
@@ -5635,11 +5635,11 @@ static int8_t write_config_file(struct bmi2_dev *dev)
                 /* Enable loading of the configuration */
                 rslt = set_config_load(BMI2_ENABLE, dev);
 
-                if (rslt == BMI2_OK)
-                {
-                    /* Enable advanced power save mode */
-                    rslt = bmi2_set_adv_power_save(BMI2_ENABLE, dev);
-                }
+                // if (rslt == BMI2_OK)
+                // {
+                //     /* Enable advanced power save mode */
+                //     rslt = bmi2_set_adv_power_save(BMI2_ENABLE, dev);
+                // }
             }
         }
     }

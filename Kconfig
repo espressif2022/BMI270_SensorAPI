@@ -1,0 +1,15 @@
+menu "IMU Sensor Selection"
+
+choice
+    prompt "Select sensor type"
+    default SENSOR_BMI270
+
+    config SENSOR_BMI220
+        bool "BMI220 support"
+
+    config SENSOR_BMI270
+        bool "BMI270 support"
+
+endchoice
+
+endmenu

@@ -62,7 +62,15 @@ extern "C" {
  ****************************************************************************/
 
 /*! @name BMI270 Chip identifier */
+#if CONFIG_SENSOR_BMI220
+#define BMI270_CHIP_ID                       UINT8_C(0x26)
+#elif CONFIG_SENSOR_BMI270
 #define BMI270_CHIP_ID                       UINT8_C(0x24)
+#else
+#error "Invalid sensor selected"
+#endif
+
+#define BMI270_I2C_ADDRESS                  UINT8_C(0x68)
 
 /*! @name BMI270 feature input start addresses */
 #define BMI270_CONFIG_ID_STRT_ADDR           UINT8_C(0x00)
@@ -124,6 +132,55 @@ extern "C" {
 
 /*!     BMI270 User Interface function prototypes
  ****************************************************************************/
+
+/**
+ * @brief BMI270 I2C configuration structure
+ *
+ * This structure contains the configuration parameters for communicating with
+ * the BMI270 sensor over I2C. It specifies the I2C port and the I2C address of
+ * the BMI270 device.
+ */
+typedef struct {
+    i2c_port_t  i2c_port;           /*!< I2C port used to connect to the BMI270 device */
+    uint8_t     i2c_addr;           /*!< I2C address of the BMI270 device, can be 0x38 or 0x39 depending on the A0 pin */
+} bmi270_i2c_config_t;
+
+/**
+ * @brief Handle type for BMI270 sensor
+ *
+ * This is a pointer to a structure representing the BMI270 device. It is used
+ * as a handle for interacting with the sensor.
+ */
+typedef struct bmi2_dev * bmi270_handle_t;
+
+/**
+ * @brief Create and initialize a BMI270 sensor object
+ *
+ * This function initializes the BMI270 sensor and prepares it for use.
+ * It configures the I2C interface and creates a handle for further communication.
+ *
+ * @param[in] i2c_conf Pointer to the I2C configuration structure
+ * @param[out] handle_ret Pointer to a variable that will hold the created sensor handle
+ * @return
+ *      - ESP_OK: Successfully created the sensor object
+ *      - ESP_ERR_INVALID_ARG: Invalid arguments were provided
+ *      - ESP_FAIL: Failed to initialize the sensor
+ */
+esp_err_t bmi270_sensor_create(const bmi270_i2c_config_t *i2c_conf, bmi270_handle_t *handle_ret);
+
+/**
+ * @brief Delete and release a BMI270 sensor object
+ *
+ * This function releases the resources allocated for the BMI270 sensor.
+ * It should be called when the sensor is no longer needed.
+ *
+ * @param[in] handle Handle of the BMI270 sensor object
+ * @return
+ *      - ESP_OK: Successfully deleted the sensor object
+ *      - ESP_ERR_INVALID_ARG: Invalid handle was provided
+ *      - ESP_FAIL: Failed to delete the sensor object
+ */
+esp_err_t bmi270_sensor_del(bmi270_handle_t handle);
 
 /**
  * \ingroup bmi270

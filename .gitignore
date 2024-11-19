@@ -1,0 +1,16 @@
+# vscode
+.vscode/
+
+# build
+**/build
+**/sdkconfig.old
+
+# managed_components
+**/managed_components
+
+# docs build files
+docs/__pycache__
+docs/_build
+
+# dependencies.lock
+**/dependencies.lock

@@ -15,7 +15,6 @@ extern "C" {
 #include <stdio.h>
 #include <stdbool.h>
 #include "bmi2.h"
-#include "coines.h"
 
 /******************************************************************************/
 /* Structure declarations */
@@ -115,7 +114,8 @@ void bmi2_delay_us(uint32_t period, void *intf_ptr);
  *  @retval 0 -> Success
  *  @retval < 0 -> Failure Info
  */
-int8_t bmi2_interface_init(struct bmi2_dev *bmi, uint8_t intf);
+// int8_t bmi2_interface_init(struct bmi2_dev *bmi, uint8_t intf);
+int8_t bmi2_interface_init(struct bmi2_dev *bmi, uint8_t intf, uint8_t dev_addr, uint8_t bus_inst);
 
 /*!
  *  @brief Prints the execution status of the APIs.

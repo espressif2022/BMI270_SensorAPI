@@ -141,7 +141,7 @@ extern "C" {
  * the BMI270 device.
  */
 typedef struct {
-    i2c_port_t  i2c_port;           /*!< I2C port used to connect to the BMI270 device */
+    i2c_bus_handle_t i2c_handle;    /*!< I2C port used to connect to the BMI270 device */
     uint8_t     i2c_addr;           /*!< I2C address of the BMI270 device, can be 0x38 or 0x39 depending on the A0 pin */
 } bmi270_i2c_config_t;
 

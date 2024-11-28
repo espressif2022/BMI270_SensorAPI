@@ -20,15 +20,6 @@ extern "C" {
 /* Structure declarations */
 /******************************************************************************/
 
-/*!
- * @brief  Structure to store the interface related configurations
- */
-struct coines_intf_config
-{
-    uint8_t dev_addr; /* Device address or Chip select of the interface selected */
-    uint8_t bus; /* Bus instance of the interface selected */
-};
-
 /******************************************************************************/
 /*!                       Function Definitions                                */
 
@@ -114,8 +105,7 @@ void bmi2_delay_us(uint32_t period, void *intf_ptr);
  *  @retval 0 -> Success
  *  @retval < 0 -> Failure Info
  */
-// int8_t bmi2_interface_init(struct bmi2_dev *bmi, uint8_t intf);
-int8_t bmi2_interface_init(struct bmi2_dev *bmi, uint8_t intf, uint8_t dev_addr, uint8_t bus_inst);
+int8_t bmi2_interface_init(struct bmi2_dev *bmi, uint8_t intf, uint8_t dev_addr, i2c_bus_handle_t bus_inst);
 
 /*!
  *  @brief Prints the execution status of the APIs.

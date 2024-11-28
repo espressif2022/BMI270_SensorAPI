@@ -12,7 +12,6 @@
 #include "bmi2_defs.h"
 
 #include "esp_log.h"
-#include "driver/i2c.h"
 
 /******************************************************************************/
 /*!                 Macro definitions                                         */
@@ -25,7 +24,7 @@
 /*!                Static variable definition                                 */
 
 /*! Structure to hold interface configurations */
-static struct coines_intf_config intf_conf;
+static i2c_bus_device_handle_t intf_conf;
 
 /******************************************************************************/
 /*!                User interface functions                                   */
@@ -35,8 +34,8 @@ static struct coines_intf_config intf_conf;
  */
 BMI2_INTF_RETURN_TYPE bmi2_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr)
 {
-    struct coines_intf_config intf_info = *(struct coines_intf_config *)intf_ptr;
-    return i2c_master_write_read_device(intf_info.bus, intf_info.dev_addr, &reg_addr, 1, reg_data, (uint16_t)len, 2000 / portTICK_PERIOD_MS);
+    i2c_bus_device_handle_t intf_info = (i2c_bus_device_handle_t)intf_ptr;
+    return i2c_bus_read_bytes(intf_info, reg_addr, (uint16_t)len, reg_data);
 }
 
 /*!
@@ -44,41 +43,8 @@ BMI2_INTF_RETURN_TYPE bmi2_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_
  */
 BMI2_INTF_RETURN_TYPE bmi2_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr)
 {
-    struct coines_intf_config intf_info = *(struct coines_intf_config *)intf_ptr;
-
-    esp_err_t err = ESP_OK;
-    // uint8_t buffer[I2C_TRANS_BUF_MINIMUM_SIZE] = { 0 };
-    uint8_t buffer[200] = { 0 };
-
-    i2c_cmd_handle_t handle = i2c_cmd_link_create_static(buffer, sizeof(buffer));
-    assert(handle != NULL);
-
-    err = i2c_master_start(handle);
-    if (err != ESP_OK) {
-        goto end;
-    }
-
-    err = i2c_master_write_byte(handle, intf_info.dev_addr << 1 | I2C_MASTER_WRITE, true);
-    if (err != ESP_OK) {
-        goto end;
-    }
-
-    err = i2c_master_write(handle, &reg_addr, 1, true);
-    if (err != ESP_OK) {
-        goto end;
-    }
-
-    err = i2c_master_write(handle, reg_data, len, true);
-    if (err != ESP_OK) {
-        goto end;
-    }
-
-    i2c_master_stop(handle);
-    err = i2c_master_cmd_begin(intf_info.bus, handle, 2000 / portTICK_PERIOD_MS);
-
-end:
-    i2c_cmd_link_delete_static(handle);
-    return err;
+    i2c_bus_device_handle_t intf_info = (i2c_bus_device_handle_t)intf_ptr;
+    return i2c_bus_write_bytes(intf_info, reg_addr, len, reg_data);
 }
 
 /*!
@@ -108,7 +74,7 @@ void bmi2_delay_us(uint32_t period, void *intf_ptr)
 /*!
  *  @brief Function to select the interface between SPI and I2C.
  */
-int8_t bmi2_interface_init(struct bmi2_dev *bmi, uint8_t intf, uint8_t dev_addr, uint8_t bus_inst)
+int8_t bmi2_interface_init(struct bmi2_dev *bmi, uint8_t intf, uint8_t dev_addr, i2c_bus_handle_t bus_inst)
 {
     int8_t rslt = BMI2_OK;
 
@@ -133,9 +99,14 @@ int8_t bmi2_interface_init(struct bmi2_dev *bmi, uint8_t intf, uint8_t dev_addr,
 
         if (BMI2_OK == result) {
             /* Assign device address and bus instance to interface pointer */
-            intf_conf.bus = bus_inst;
-            intf_conf.dev_addr = dev_addr;
-            bmi->intf_ptr = ((void *)&intf_conf);
+            i2c_bus_device_handle_t i2c_device_handle = i2c_bus_device_create(bus_inst, dev_addr, 0);
+            if (NULL == i2c_device_handle) {
+                ESP_LOGE("BMI2", "i2c_bus_device_create failed");
+                rslt = BMI2_E_NULL_PTR;
+            }
+
+            intf_conf = i2c_device_handle;
+            bmi->intf_ptr = (void *)intf_conf;
 
             /* Configure delay in microseconds */
             bmi->delay_us = bmi2_delay_us;
@@ -356,4 +327,6 @@ void bmi2_error_codes_print_result(int8_t rslt)
  */
 void bmi2_coines_deinit(void)
 {
+    ESP_LOGI("BMI2", "bmi2_coines_deinit");
+    i2c_bus_device_delete(&intf_conf);
 }

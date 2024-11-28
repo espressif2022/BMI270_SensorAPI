@@ -1,4 +1,6 @@
 ## IDF Component Manager Manifest File
 dependencies:
   idf: ">=5.0"
-  espressif2022/bmi270: "^1.0.1~1"
+  BMI270_SensorAPI_espressif2022:
+    version: "*"
+    override_path: "../../../BMI270_SensorAPI_espressif2022"

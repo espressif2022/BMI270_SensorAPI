@@ -5193,7 +5193,7 @@ esp_err_t bmi270_sensor_create(const bmi270_i2c_config_t *i2c_conf, bmi270_handl
     struct bmi2_dev *bmi = (struct bmi2_dev *) calloc(1, sizeof(struct bmi2_dev));
     ESP_RETURN_ON_FALSE(bmi, ESP_ERR_NO_MEM, TAG, "memory allocation for device handler failed");
 
-    rslt = bmi2_interface_init(bmi, BMI2_I2C_INTF, i2c_conf->i2c_addr, i2c_conf->i2c_port);
+    rslt = bmi2_interface_init(bmi, BMI2_I2C_INTF, i2c_conf->i2c_addr, i2c_conf->i2c_handle);
     bmi2_error_codes_print_result(rslt);
     ESP_GOTO_ON_FALSE((BMI2_OK == rslt), ESP_ERR_INVALID_STATE, err, TAG, "bmi2_interface_init failed");
 
@@ -5202,7 +5202,7 @@ esp_err_t bmi270_sensor_create(const bmi270_i2c_config_t *i2c_conf, bmi270_handl
     bmi2_error_codes_print_result(rslt);
     ESP_GOTO_ON_FALSE((BMI2_OK == rslt), ESP_ERR_INVALID_STATE, err, TAG, "bmi270_init failed");
 
-    ESP_LOGI(TAG, "%-15s: %d.%d.%d", (BMI270_CHIP_ID == 0x24) ? "BMI270" : "BMI220", BMI270_VER_MAJOR, BMI270_VER_MINOR, BMI270_VER_PATCH);
+    ESP_LOGI(TAG, " Create %-15s", (BMI270_CHIP_ID == 0x24) ? "BMI270" : "BMI220");
 
     *handle_ret = bmi;
     return ret;
@@ -5215,6 +5215,7 @@ err:
 esp_err_t bmi270_sensor_del(bmi270_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "invalid device handle pointer");
+    bmi2_coines_deinit();
 
     free(handle);
 

@@ -6,14 +6,11 @@
 
 #include <stdio.h>
 #include "unity.h"
-#include "driver/i2c.h"
 #include "esp_system.h"
 #include "esp_log.h"
 
 #include "bmi270.h"
 #include "common/common.h"
-
-static const char *TAG = "bmi270 test";
 
 #define TEST_MEMORY_LEAK_THRESHOLD (-400)
 
@@ -30,38 +27,29 @@ static const char *TAG = "bmi270 test";
 #define I2C_MASTER_FREQ_HZ  100000                  /*!< I2C master clock frequency */
 
 static bmi270_handle_t bmi_handle = NULL;
+static i2c_bus_handle_t i2c_bus;
 
 /**
  * @brief i2c master initialization
  */
-static void i2c_bus_init(void)
-{
-    const i2c_config_t i2c_conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = (gpio_num_t)I2C_MASTER_SDA_IO,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_io_num = (gpio_num_t)I2C_MASTER_SCL_IO,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = I2C_MASTER_FREQ_HZ
-    };
-
-    ESP_LOGI(TAG, "SCL:%d, SDA:%d", i2c_conf.scl_io_num, i2c_conf.sda_io_num);
-    esp_err_t ret = i2c_param_config(I2C_MASTER_NUM, &i2c_conf);
-    TEST_ASSERT_EQUAL_MESSAGE(ESP_OK, ret, "I2C config returned error");
-
-    ret = i2c_driver_install(I2C_MASTER_NUM, i2c_conf.mode, 0, 0, 0);
-    TEST_ASSERT_EQUAL_MESSAGE(ESP_OK, ret, "I2C install returned error");
-}
-
 static void i2c_sensor_bmi270_init(void)
 {
-    bmi270_i2c_config_t i2c_conf = {
-        .i2c_port = I2C_MASTER_NUM,
+    const i2c_config_t i2c_bus_conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = I2C_MASTER_SDA_IO,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_io_num = I2C_MASTER_SCL_IO,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .master.clk_speed = 400000
+    };
+    i2c_bus = i2c_bus_create(I2C_MASTER_NUM, &i2c_bus_conf);
+    TEST_ASSERT_NOT_NULL_MESSAGE(i2c_bus, "i2c_bus create returned NULL");
+
+    bmi270_i2c_config_t i2c_bmi270_conf = {
+        .i2c_handle = i2c_bus,
         .i2c_addr = BMI270_I2C_ADDRESS,
     };
-
-    i2c_bus_init();
-    bmi270_sensor_create(&i2c_conf, &bmi_handle);
+    bmi270_sensor_create(&i2c_bmi270_conf, &bmi_handle);
     TEST_ASSERT_NOT_NULL_MESSAGE(bmi_handle, "BMI270 create returned NULL");
 }
 
@@ -352,7 +340,7 @@ TEST_CASE("sensor Bmi270 test", "[Bmi270][sensor][wrist_gesture]")
     TEST_ASSERT_EQUAL(BMI2_OK, rslt);
 
     bmi270_sensor_del(bmi_handle);
-    ret = i2c_driver_delete(I2C_MASTER_NUM);
+    ret = i2c_bus_delete(&i2c_bus);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 }
 
@@ -367,7 +355,7 @@ TEST_CASE("sensor Bmi270 test", "[Bmi270][sensor][accel_gyro]")
     TEST_ASSERT_EQUAL(BMI2_OK, rslt);
 
     bmi270_sensor_del(bmi_handle);
-    ret = i2c_driver_delete(I2C_MASTER_NUM);
+    ret = i2c_bus_delete(&i2c_bus);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 }
 

@@ -8,6 +8,7 @@
 #include "unity.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "driver/gpio.h"
 
 #include "bmi270.h"
 #include "common/common.h"
@@ -21,13 +22,41 @@
 #define ACCEL               UINT8_C(0x00)
 #define GYRO                UINT8_C(0x01)
 
-#define I2C_MASTER_SCL_IO   CONFIG_I2C_MASTER_SCL   /*!< gpio number for I2C master clock */
-#define I2C_MASTER_SDA_IO   CONFIG_I2C_MASTER_SDA   /*!< gpio number for I2C master data  */
-#define I2C_MASTER_NUM      I2C_NUM_0               /*!< I2C port number for master dev */
-#define I2C_MASTER_FREQ_HZ  100000                  /*!< I2C master clock frequency */
+// #define I2C_MASTER_SCL_IO   CONFIG_I2C_MASTER_SCL   /*!< gpio number for I2C master clock */
+// #define I2C_MASTER_SDA_IO   CONFIG_I2C_MASTER_SDA   /*!< gpio number for I2C master data  */
+
+#define HW_ESP_SPOT_C5      1
+#define HW_ESP_SPOT_S3      0
+#define HW_ESP_ASTOM_S3     0
+
+#if HW_ESP_SPOT_C5
+#define I2C_INT_IO              3
+#define I2C_MASTER_SCL_IO       26
+#define I2C_MASTER_SDA_IO       25
+#elif HW_ESP_SPOT_S3
+#define I2C_INT_IO              5
+#define I2C_MASTER_SCL_IO       1
+#define I2C_MASTER_SDA_IO       2
+#elif HW_ESP_ASTOM_S3
+#define I2C_INT_IO              16
+#define I2C_MASTER_SCL_IO       0
+#define I2C_MASTER_SDA_IO       45
+#endif
+
+#define I2C_MASTER_NUM          I2C_NUM_0               /*!< I2C port number for master dev */
+#define I2C_MASTER_FREQ_HZ      100000                  /*!< I2C master clock frequency */
 
 static bmi270_handle_t bmi_handle = NULL;
 static i2c_bus_handle_t i2c_bus;
+
+bool interrupt_status = false;
+
+static void IRAM_ATTR gpio_isr_edge_handler(void* arg)
+{
+    uint32_t gpio_num = (uint32_t) arg;
+    interrupt_status = true;
+    esp_rom_printf("GPIO[%"PRIu32"] intr, val: %d\n", gpio_num, gpio_get_level(gpio_num));
+}
 
 /**
  * @brief i2c master initialization
@@ -329,6 +358,113 @@ int8_t bmi270_enable_accel_gyro(struct bmi2_dev *bmi2_dev)
     return rslt;
 }
 
+/*!
+ * @brief This internal API is used to set configurations for any-motion.
+ */
+static int8_t set_feature_config(struct bmi2_dev *bmi2_dev)
+{
+
+    /* Status of api are returned to this variable. */
+    int8_t rslt;
+
+    /* Structure to define the type of sensor and its configurations. */
+    struct bmi2_sens_config config;
+
+    /* Interrupt pin configuration */
+    struct bmi2_int_pin_config pin_config = { 0 };
+
+    /* Configure the type of feature. */
+    config.type = BMI2_ANY_MOTION;
+
+    /* Get default configurations for the type of feature selected. */
+    rslt = bmi270_get_sensor_config(&config, 1, bmi2_dev);
+    bmi2_error_codes_print_result(rslt);
+
+    rslt = bmi2_get_int_pin_config(&pin_config, bmi2_dev);
+    bmi2_error_codes_print_result(rslt);
+
+    if (rslt == BMI2_OK) {
+        /* NOTE: The user can change the following configuration parameters according to their requirement. */
+        /* 1LSB equals 20ms. Default is 100ms, setting to 80ms. */
+        config.cfg.any_motion.duration = 0x04;
+
+        /* 1LSB equals to 0.48mg. Default is 83mg, setting to 50mg. */
+        config.cfg.any_motion.threshold = 0x68;
+
+        /* Set new configurations. */
+        rslt = bmi270_set_sensor_config(&config, 1, bmi2_dev);
+        bmi2_error_codes_print_result(rslt);
+
+        /* Interrupt pin configuration */
+        pin_config.pin_type = BMI2_INT1;
+        pin_config.pin_cfg[0].input_en = BMI2_INT_INPUT_DISABLE;
+        pin_config.pin_cfg[0].lvl = BMI2_INT_ACTIVE_LOW;
+        pin_config.pin_cfg[0].od = BMI2_INT_PUSH_PULL;
+        pin_config.pin_cfg[0].output_en = BMI2_INT_OUTPUT_ENABLE;
+        pin_config.int_latch = BMI2_INT_NON_LATCH;
+
+        rslt = bmi2_set_int_pin_config(&pin_config, bmi2_dev);
+        bmi2_error_codes_print_result(rslt);
+    }
+
+    return rslt;
+}
+
+int8_t bmi270_enable_any_motion_int(struct bmi2_dev *bmi2_dev)
+{
+    /* Status of api are returned to this variable. */
+    int8_t rslt;
+
+    /* Accel sensor and no-motion feature are listed in array. */
+    uint8_t sens_list[2] = { BMI2_ACCEL, BMI2_ANY_MOTION };
+
+    /* Variable to get no-motion interrupt status. */
+    uint16_t int_status = 0;
+
+    /* Select features and their pins to be mapped to. */
+    struct bmi2_sens_int_config sens_int = { .type = BMI2_ANY_MOTION, .hw_int_pin = BMI2_INT1 };
+
+    /* Enable the selected sensors. */
+    rslt = bmi270_sensor_enable(sens_list, 2, bmi2_dev);
+    bmi2_error_codes_print_result(rslt);
+
+    if (rslt == BMI2_OK) {
+        /* Set feature configurations for no-motion. */
+        rslt = set_feature_config(bmi2_dev);
+        bmi2_error_codes_print_result(rslt);
+
+        if (rslt == BMI2_OK) {
+            /* Map the feature interrupt for no-motion. */
+            rslt = bmi270_map_feat_int(&sens_int, 1, bmi2_dev);
+            bmi2_error_codes_print_result(rslt);
+            printf("Move the board\n");
+
+            /* Loop to get no-motion interrupt. */
+            do {
+                if (interrupt_status == 1) {
+                    interrupt_status = 0;
+                    /* Clear buffer. */
+                    int_status = 0;
+
+                    /* To get the interrupt status of any-motion. */
+                    rslt = bmi2_get_int_status(&int_status, bmi2_dev);
+                    bmi2_error_codes_print_result(rslt);
+
+                    /* To check the interrupt status of any-motion. */
+                    if (int_status & BMI270_ANY_MOT_STATUS_MASK) {
+                        printf("Any-motion interrupt is generated\n");
+                        break;
+                    }
+                } else {
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                }
+            } while (rslt == BMI2_OK);
+        }
+    }
+
+    return rslt;
+}
+
 TEST_CASE("sensor Bmi270 test", "[Bmi270][sensor][wrist_gesture]")
 {
     esp_err_t ret = ESP_OK;
@@ -353,6 +489,35 @@ TEST_CASE("sensor Bmi270 test", "[Bmi270][sensor][accel_gyro]")
     int8_t rslt = bmi270_enable_accel_gyro(bmi_handle);
     bmi2_error_codes_print_result(rslt);
     TEST_ASSERT_EQUAL(BMI2_OK, rslt);
+
+    bmi270_sensor_del(bmi_handle);
+    ret = i2c_bus_delete(&i2c_bus);
+    TEST_ASSERT_EQUAL(ESP_OK, ret);
+}
+
+TEST_CASE("sensor Bmi270 test", "[Bmi270][sensor][BMI2_ANY_MOTION][BMI2_INT1]")
+{
+    esp_err_t ret = ESP_OK;
+
+    gpio_config_t io_conf = {};
+    io_conf.intr_type = GPIO_INTR_ANYEDGE;
+    io_conf.pin_bit_mask = (1ULL << I2C_INT_IO);
+
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pull_down_en = 1;
+    gpio_config(&io_conf);
+
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(I2C_INT_IO, gpio_isr_edge_handler, (void*) I2C_INT_IO);
+
+    i2c_sensor_bmi270_init();
+
+    int8_t rslt = bmi270_enable_any_motion_int(bmi_handle);
+    bmi2_error_codes_print_result(rslt);
+    TEST_ASSERT_EQUAL(BMI2_OK, rslt);
+
+    gpio_isr_handler_remove(I2C_INT_IO);
+    gpio_uninstall_isr_service();
 
     bmi270_sensor_del(bmi_handle);
     ret = i2c_bus_delete(&i2c_bus);

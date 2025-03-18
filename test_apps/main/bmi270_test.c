@@ -25,6 +25,8 @@
 // #define I2C_MASTER_SCL_IO   CONFIG_I2C_MASTER_SCL   /*!< gpio number for I2C master clock */
 // #define I2C_MASTER_SDA_IO   CONFIG_I2C_MASTER_SDA   /*!< gpio number for I2C master data  */
 
+#define UE_SW_I2C           1
+
 #define HW_ESP_SPOT_C5      1
 #define HW_ESP_SPOT_S3      0
 #define HW_ESP_ASTOM_S3     0
@@ -44,7 +46,7 @@
 #endif
 
 #define I2C_MASTER_NUM          I2C_NUM_0               /*!< I2C port number for master dev */
-#define I2C_MASTER_FREQ_HZ      100000                  /*!< I2C master clock frequency */
+#define I2C_MASTER_FREQ_HZ      100*1000                /*!< I2C master clock frequency */
 
 static bmi270_handle_t bmi_handle = NULL;
 static i2c_bus_handle_t i2c_bus;
@@ -69,9 +71,13 @@ static void i2c_sensor_bmi270_init(void)
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_io_num = I2C_MASTER_SCL_IO,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 400000
+        .master.clk_speed = I2C_MASTER_FREQ_HZ
     };
+#if UE_SW_I2C
+    i2c_bus = i2c_bus_create(I2C_NUM_SW_1, &i2c_bus_conf);
+#else
     i2c_bus = i2c_bus_create(I2C_MASTER_NUM, &i2c_bus_conf);
+#endif
     TEST_ASSERT_NOT_NULL_MESSAGE(i2c_bus, "i2c_bus create returned NULL");
 
     bmi270_i2c_config_t i2c_bmi270_conf = {
